@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metdata:
+  name: enterprise-user
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: enterprise-user
+  template:
+    metadata:
+      labels:
+        app: enterprise-user
+    spec:
+      containers:
+        - name: enterprise-user
+          image: registry.gitlab.com/enterprise-demo-apps/enterprise-user:latest
+          ports:
+            - containerPort: 8080

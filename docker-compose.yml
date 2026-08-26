@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: rahasia
+      POSTGRES_DB: db_users
+    ports:
+      - "5432:5432"
+    # Tambahkan healthcheck ini agar Docker tahu kapan PostgreSQL benar-benar siap
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_users"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  enterprise-user:
+    build: 
+      context: ./enterprise-demo-apps/enterprise-user
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy # Aplikasi Go akan menunggu sampai db benar-benar siap
