@@ -3,11 +3,13 @@ package handler
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/igunnawan31/enterprise-user/internal/domain"
 	"github.com/igunnawan31/enterprise-user/internal/repository"
 	"github.com/igunnawan31/enterprise-user/internal/service"
+	"github.com/igunnawan31/enterprise-user/internal/utils"
 )
 
 type UserHandler struct {
@@ -48,26 +50,46 @@ func (h *UserHandler) Create(c *gin.Context) {
 	var req CreateUserRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, "400", "Invalid Input")
 		return
 	}
 
 	user, err := h.userService.CreateUser(req.Name, req.Email, req.Password, domain.UserRole(req.Role), req.Phone, domain.Active)
 	if err != nil {
 		// Mengembalikan status 400 Bad Request jika gagal (misal: email duplikat)
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, "400", "Duplicate Email or Invalid Input")
 		return
 	}
-	c.JSON(http.StatusCreated, gin.H{"success": true, "data": user})
+	utils.SuccessResponse(c, http.StatusCreated, "User successfully created", user)
 }
 
 func (h *UserHandler) GetAll(c *gin.Context) {
-	users, err := h.userService.GetAllUsers()
+	pageStr := c.DefaultQuery("page", "1")
+	limitStr := c.DefaultQuery("limit", "10")
+	search := c.Query("search")
+
+	page, _ := strconv.Atoi(pageStr)
+	limit, _ := strconv.Atoi(limitStr)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+
+	users, total, err := h.userService.GetAllUsers(page, limit, search)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "500", "Internal Server Error")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": users})
+	utils.SuccessResponse(c, http.StatusOK, "Users retrieved successfully", gin.H{
+		"users": users,
+		"pagination": gin.H{
+			"current_page": page,
+			"limit":        limit,
+			"total_data":   total,
+		},
+	})
 }
 
 func (h *UserHandler) GetByID(c *gin.Context) {
@@ -75,11 +97,11 @@ func (h *UserHandler) GetByID(c *gin.Context) {
 
 	user, err := h.userService.GetUserByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"success": false, "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusNotFound, "400", "User not found")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": user})
+	utils.SuccessResponse(c, http.StatusOK, "Users retrieved successfully", user)
 }
 
 func (h *UserHandler) Update(c *gin.Context) {
@@ -87,7 +109,7 @@ func (h *UserHandler) Update(c *gin.Context) {
 
 	var req UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusBadRequest, "400", "Invalid Input")
 		return
 	}
 
@@ -111,14 +133,14 @@ func (h *UserHandler) Update(c *gin.Context) {
 	user, err := h.userService.UpdateUser(id, updates)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": err.Error()})
+			utils.ErrorResponse(c, http.StatusNotFound, "400", "User not found")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "500", "Internal Server Error")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": user})
+	utils.SuccessResponse(c, http.StatusOK, "Users updated successfully", user)
 }
 
 func (h *UserHandler) Delete(c *gin.Context) {
@@ -126,11 +148,11 @@ func (h *UserHandler) Delete(c *gin.Context) {
 	err := h.userService.DeleteUser(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrUserNotFound) {
-			c.JSON(http.StatusNotFound, gin.H{"success": false, "error": err.Error()})
+			utils.ErrorResponse(c, http.StatusNotFound, "400", "User not found")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"success": false, "error": err.Error()})
+		utils.ErrorResponse(c, http.StatusInternalServerError, "500", "Internal Server Error")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "message": "user successfully deleted"})
+	utils.SuccessResponse(c, http.StatusOK, "Users deleted successfully", nil)
 }

@@ -17,7 +17,7 @@ var (
 // UserRepositoryInterface untuk mendefinisikan kontrak repository user
 type UserRepositoryInterface interface {
 	Save(user *User) error
-	FindAll() ([]User, error)
+	FindAll(limit, offset int, search string) ([]User, int64, error)
 	FindByID(id string) (User, error)
 	Update(id string, updates map[string]interface{}) (User, error)
 	Delete(id string) error
@@ -69,14 +69,20 @@ func (s *UserRepository) Save(user *User) error {
 	return result.Error
 }
 
-func (s *UserRepository) FindAll() ([]User, error) {
+func (s *UserRepository) FindAll(limit, offset int, search string) ([]User, int64, error) {
 	var users []User
-	// GORM men-generate query : SELECT * FROM users
-	result := s.db.Find(&users)
-	if result.Error != nil {
-		return []User{}, result.Error
+	var total int64
+
+	query := s.db.Model(&User{})
+	if search != "" {
+		query = query.Where("name ILIKE ? OR email ILIKE ?", "%"+search+"%", "%"+search+"%")
 	}
-	return users, result.Error
+
+	query.Count(&total)
+
+	// GORM men-generate query : SELECT * FROM users
+	err := query.Limit(limit).Offset(offset).Find(&users).Error
+	return users, total, err
 }
 
 func (s *UserRepository) FindByID(id string) (User, error) {
