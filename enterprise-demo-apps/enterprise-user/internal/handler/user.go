@@ -37,9 +37,15 @@ type UpdateUserRequest struct {
 	Status *domain.UserStatus `json:"status" binding:"omitempty,oneof=active inactive"`
 }
 
+type VerifyUserRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"` // internal endpoint: no password policy validation needed
+}
+
 // RegisterRoutes links the HTTP methods and endpoints to the handler methods
 func (h *UserHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/users", h.Create)
+	rg.POST("/internal/verify", h.VerifyCredentials)
 	rg.GET("/users", h.GetAll)
 	rg.GET("/users/:id", h.GetByID)
 	rg.PATCH("/users/:id", h.Update)
@@ -61,6 +67,22 @@ func (h *UserHandler) Create(c *gin.Context) {
 		return
 	}
 	utils.SuccessResponse(c, http.StatusCreated, "User successfully created", user)
+}
+
+func (h *UserHandler) VerifyCredentials(c *gin.Context) {
+	var req VerifyUserRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "400", "Invalid Request Body")
+		return
+	}
+
+	user, err := h.userService.CreateVerifyCredentials(req.Email, req.Password)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "401", "Invalid email and password")
+		return
+	}
+	utils.SuccessResponse(c, http.StatusOK, "User successfully login", user)
 }
 
 func (h *UserHandler) GetAll(c *gin.Context) {

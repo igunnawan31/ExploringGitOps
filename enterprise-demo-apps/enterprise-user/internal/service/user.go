@@ -1,7 +1,9 @@
 package service
 
 import (
+	"errors"
 	"fmt"
+	"log"
 
 	"github.com/igunnawan31/enterprise-user/internal/domain"
 	"github.com/igunnawan31/enterprise-user/internal/repository"
@@ -10,6 +12,7 @@ import (
 
 type UserService interface {
 	CreateUser(name, email, password string, role domain.UserRole, phone string, status domain.UserStatus) (repository.User, error)
+	CreateVerifyCredentials(email, password string) (repository.User, error)
 	GetAllUsers(page, limit int, search string) ([]repository.User, int64, error)
 	GetUserByID(id string) (repository.User, error)
 	UpdateUser(id string, updates map[string]interface{}) (repository.User, error)
@@ -48,6 +51,21 @@ func (s *userService) CreateUser(name, email, password string, role domain.UserR
 	err = s.repo.Save(&user)
 	if err != nil {
 		return repository.User{}, err
+	}
+
+	return user, nil
+}
+
+func (s *userService) CreateVerifyCredentials(email, password string) (repository.User, error) {
+	user, err := s.repo.FindByEmail(email)
+	if err != nil {
+		return repository.User{}, errors.New("invalid email and password")
+	}
+	log.Printf("DEBUG HASH FROM DB: [%s]", user.PasswordHash)
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
+	if err != nil {
+		return repository.User{}, errors.New("invalid email and password")
 	}
 
 	return user, nil

@@ -17,6 +17,7 @@ var (
 // UserRepositoryInterface untuk mendefinisikan kontrak repository user
 type UserRepositoryInterface interface {
 	Save(user *User) error
+	FindByEmail(email string) (User, error)
 	FindAll(limit, offset int, search string) ([]User, int64, error)
 	FindByID(id string) (User, error)
 	Update(id string, updates map[string]interface{}) (User, error)
@@ -27,7 +28,7 @@ type User struct {
 	ID           string            `gorm:"primaryKey;type:uuid"`
 	Name         string            `gorm:"type:varchar(100);not null"`
 	Email        string            `gorm:"type:varchar(100);uniqueIndex;not null"`
-	PasswordHash string            `gorm:"type:varchar(100);column:password_hash;not null;->:false;<-" json:"-"`
+	PasswordHash string            `gorm:"type:varchar(100);column:password_hash;not null" json:"-"`
 	Role         domain.UserRole   `gorm:"type:varchar(20);not null;default:'customer'"`
 	Phone        string            `gorm:"type:varchar(20)"`
 	Status       domain.UserStatus `gorm:"type:varchar(20);not null;default:'active'"`
@@ -67,6 +68,21 @@ func (s *UserRepository) Save(user *User) error {
 	// GORM men-generate query : INSERT INTO users (id, name, email) VALUES (?, ?, ?)
 	result := s.db.Create(user)
 	return result.Error
+}
+
+func (s *UserRepository) FindByEmail(email string) (User, error) {
+	var user User
+
+	result := s.db.First(&user, "email = ?", email)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+			return User{}, ErrUserNotFound
+		}
+
+		return User{}, result.Error
+	}
+
+	return user, nil
 }
 
 func (s *UserRepository) FindAll(limit, offset int, search string) ([]User, int64, error) {

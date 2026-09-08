@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/igunnawan31/enterprise-user/internal/broker"
 	"github.com/igunnawan31/enterprise-user/internal/config"
 	"github.com/igunnawan31/enterprise-user/internal/handler"
 	"github.com/igunnawan31/enterprise-user/internal/repository"
@@ -24,7 +25,13 @@ func main() {
 	// give "userService" to handler
 	userHandler := handler.NewUserHandler(userService)
 
+	// Set up Validator
 	validator.InitValidators()
+
+	// Set up Broker
+	if err := broker.StartKafkaUser(userRepository); err != nil {
+		log.Fatalf("Failed to start Kafka user: %v", err)
+	}
 
 	// Set up Gin Framework
 	router := gin.Default()
